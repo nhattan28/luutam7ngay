@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ghi nhớ 7 ngày</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 1rem;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #e3f2fd, #f1f8e9);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h2 {
+      font-size: 1.8rem;
+      margin-bottom: 10px;
+      color: #2c3e50;
+      text-align: center;
+    }
+
+    .tab-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .tab-bar button {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #bbb;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.2s;
+    }
+
+    .tab-bar button.active {
+      background: #2196f3;
+      color: white;
+    }
+
+    textarea {
+      width: 100%;
+      max-width: 720px;
+      height: 220px;
+      font-size: 1rem;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #888;
+      resize: vertical;
+    }
+
+    .buttons {
+      margin-top: 14px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    button {
+      background: #1976d2;
+      color: white;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #0d47a1;
+    }
+
+    @media (max-width: 600px) {
+      textarea { height: 180px; }
+      h2 { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+  <h2>📘 Ghi nhớ 7 ngày – Mỗi trang riêng biệt</h2>
+
+  <div class="tab-bar" id="pageTabs"></div>
+
+  <textarea id="content" placeholder="Nhập nội dung tại đây..."></textarea>
+
+  <div class="buttons">
+    <button onclick="copyText()">📋 Copy</button>
+    <button onclick="pasteText()">📥 Dán</button>
+    <button onclick="clearContent()">🧹 Xoá</button>
+  </div>
+
+  <script>
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbxRKq4bL0tLm-qPlyrvQF-qmuEygCtbuOcCNgH8lDyJUveevijfQZ55WRs08ZgLtLOO/exec';
+    let currentPage = 1;
+    let timeoutId;
+
+    function generateTabs() {
+      const tabs = document.getElementById('pageTabs');
+      tabs.innerHTML = "";
+
+      for (let i = 1; i <= 10; i++) {
+        const btn = document.createElement('button');
+        btn.textContent = `Trang ${i}`;
+        btn.id = `tab-${i}`;
+        btn.classList.toggle('active', i === currentPage);
+        btn.onclick = () => {
+          if (currentPage !== i) {
+            switchPage(i);
+          }
+        };
+        tabs.appendChild(btn);
+      }
+    }
+
+    function switchPage(pageNum) {
+      currentPage = pageNum;
+      document.getElementById("content").value = ""; // xoá nội dung cũ
+      fetch(`${scriptURL}?page=${currentPage}`)
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById("content").value = data.content || "";
+          generateTabs(); // cập nhật lại tab active
+        })
+        .catch(() => {
+          alert("⚠️ Không thể tải dữ liệu.");
+        });
+    }
+
+    function autoSave() {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        const content = document.getElementById("content").value;
+        const body = new URLSearchParams({ page: currentPage, content });
+        fetch(scriptURL, {
+          method: "POST",
+          body,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        }).catch(() => {});
+      }, 1000); // tự lưu sau 1s gõ
+    }
+
+    function clearContent() {
+      if (confirm("Bạn muốn xoá nội dung trang này?")) {
+        document.getElementById("content").value = "";
+        autoSave();
+      }
+    }
+
+    function copyText() {
+      const textarea = document.getElementById("content");
+      textarea.select();
+      document.execCommand("copy");
+      alert("📋 Đã copy nội dung!");
+    }
+
+    async function pasteText() {
+      try {
+        const text = await navigator.clipboard.readText();
+        document.getElementById("content").value = text;
+        autoSave();
+      } catch {
+        alert("⚠️ Không thể dán. Hãy cấp quyền clipboard.");
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      generateTabs();
+      switchPage(currentPage);
+      document.getElementById("content").addEventListener("input", autoSave);
+    });
+  </script>
+</body>
+</html>
