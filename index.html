@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tạm</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 1rem;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #e3f2fd, #e8f5e9);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h2 {
+      font-size: 1.8rem;
+      margin-bottom: 10px;
+      color: #2c3e50;
+    }
+    .tab-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .tab-bar button {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #ccc;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .tab-bar button.active {
+      background: #2196f3;
+      color: white;
+    }
+    textarea {
+      width: 100%;
+      max-width: 720px;
+      height: 240px;
+      font-size: 1rem;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #aaa;
+      resize: vertical;
+    }
+    .buttons {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    button {
+      background: #1976d2;
+      color: white;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0d47a1;
+    }
+    @media (max-width: 600px) {
+      textarea { height: 200px; }
+      h2 { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+  <h2>📘 Ghi tạm </h2>
+  <div class="tab-bar" id="pageTabs"></div>
+  <textarea id="content" placeholder="Nhập nội dung tại đây..."></textarea>
+  <div class="buttons">
+    <button onclick="copyText()">📋 Copy</button>
+    <button onclick="pasteText()">📥 Dán</button>
+    <button onclick="clearContent()">🧹 Xoá</button>
+  </div>
+
+  <script>
+    const scriptURL = 'https://script.google.com/macros/s/AKfycby35nCtZ1IV3skud6e3BZRQqEpf1H_qxdcC4kP3Sxy4xCKvFW5soKCMxRVcWfAvGEgM/exec';
+    let currentPage = 1;
+    let timeoutId;
+
+    // Tạo tabs trang
+    function generateTabs() {
+      const tabs = document.getElementById('pageTabs');
+      tabs.innerHTML = "";
+      for (let i = 1; i <= 10; i++) {
+        const btn = document.createElement('button');
+        btn.textContent = `Trang ${i}`;
+        btn.className = (i === currentPage) ? "active" : "";
+        btn.onclick = () => {
+          if (i !== currentPage) {
+            currentPage = i;
+            switchPage(i);
+            generateTabs();
+          }
+        };
+        tabs.appendChild(btn);
+      }
+    }
+
+    // Chuyển trang + ưu tiên dùng cache localStorage
+    function switchPage(i) {
+      currentPage = i;
+      const textarea = document.getElementById("content");
+      textarea.value = ""; // Xoá cũ để tránh loạn
+
+      const cached = localStorage.getItem(`note-page-${i}`);
+      if (cached) {
+        textarea.value = cached;
+      }
+
+      fetch(`${scriptURL}?page=${i}`)
+        .then(res => res.json())
+        .then(data => {
+          textarea.value = data.content || "";
+          localStorage.setItem(`note-page-${i}`, data.content || "");
+        })
+        .catch(() => {
+          alert("⚠️ Không thể tải dữ liệu từ Google Sheets.");
+        });
+    }
+
+    // Tự lưu sau 1s khi gõ
+    function autoSave() {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        const content = document.getElementById("content").value;
+        localStorage.setItem(`note-page-${currentPage}`, content);
+        fetch(scriptURL, {
+          method: "POST",
+          body: new URLSearchParams({ page: currentPage, content }),
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        }).catch(() => {});
+      }, 1000);
+    }
+
+    // Các nút tiện ích
+    function clearContent() {
+      if (confirm("Bạn muốn xoá nội dung trang này?")) {
+        document.getElementById("content").value = "";
+        autoSave();
+      }
+    }
+
+    function copyText() {
+      const textarea = document.getElementById("content");
+      textarea.select();
+      document.execCommand("copy");
+      alert("📋 Đã copy nội dung!");
+    }
+
+    async function pasteText() {
+      try {
+        const text = await navigator.clipboard.readText();
+        document.getElementById("content").value = text;
+        autoSave();
+      } catch {
+        alert("⚠️ Không thể dán. Hãy cấp quyền clipboard.");
+      }
+    }
+
+    // Khi load
+    window.onload = () => {
+      generateTabs();
+      switchPage(currentPage);
+      document.getElementById("content").addEventListener("input", autoSave);
+    };
+  </script>
+</body>
+</html>
